@@ -36,11 +36,11 @@ pub struct InitProfile<'info> {
     #[account(
         init,
         payer = user,
-        space = 8 +  32 + 8 + 1,  // discriminator +  name + pubkey + timestamp + bump
+        space = 8 +  (4 + 32) + 32 + 8 + 1,  // discriminator +  name + pubkey + timestamp + bump
         seeds = [b"profile", user.key().as_ref()],
         bump
     )]
-    pub profile: Account<'info, Registration>,
+    pub profile: Account<'info, ProfileInfo>,
 
     #[account(mut)]
     pub user: Signer<'info>,
@@ -62,13 +62,12 @@ pub struct InitValidator<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    /// CHECK: Optional validator if needed
-    pub profile: AccountInfo<'info>,
+    pub profile: Account<'info, ProfileInfo>,
     pub system_program: Program<'info, System>,
 }
 
 #[account]
-pub struct Registration {
+pub struct ProfileInfo {
     pub name: String,
     pub user: Pubkey,
     pub timestamp: i64,

@@ -10,34 +10,56 @@ describe("registration-contract", () => {
 
   const user = provider.wallet;
 
-  it("Registers a new profile", async () => {
-    const id = new anchor.BN(1);
+  it("Initializes a profile and validator", async () => {
     const name = "kartik";
+    const validatorName = "validator-kartik";
+    const id = new anchor.BN(1);
 
-    // Derive PDA
-    const [registrationPda] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("registration"), user.publicKey.toBuffer()],
+    // Derive profile PDA
+    const [profilePda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("profile"), user.publicKey.toBuffer()],
       program.programId
     );
 
-    // Call register
-    const tx = await program.methods
-      .register(id, name)
+    // Step 1: Init Profile
+    const tx1 = await program.methods
+      .initProfile(name)
       .accounts({
-        registration: registrationPda,
+        profile: profilePda,
         user: user.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
-      }as any)
+      } as any)
       .rpc();
 
-    console.log("✅ Register tx:", tx);
+    console.log("✅ init_profile tx:", tx1);
 
-    // Fetch the account
-    const account = await program.account.registration.fetch(registrationPda);
+    // Step 2: Derive Validator PDA using ID
+    const [validatorPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("validator"), user.publicKey.toBuffer(), id.toArrayLike(Buffer, "le", 8)],
+      program.programId
+    );
 
-    assert.equal(account.id.toNumber(), id.toNumber());
-    assert.equal(account.name, name);
-    assert.equal(account.user.toBase58(), user.publicKey.toBase58());
-    assert.ok(account.timestamp.toNumber() > 0);
+    // Step 3: Init Validator
+    const tx2 = await program.methods
+      .initValidator(id, validatorName)
+      .accounts({
+        validator: validatorPda,
+        authority: user.publicKey,
+        profile: profilePda,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      } as any)
+      .rpc();
+
+    console.log("✅ init_validator tx:", tx2);
+
+    // Step 4: Fetch and assert
+    const validatorAccount = await program.account.validatorInfo.fetch(validatorPda);
+
+    assert.equal(validatorAccount.id.toNumber(), id.toNumber());
+    assert.equal(validatorAccount.name, validatorName);
+    assert.ok(validatorAccount.isActive);
+    assert.equal(validatorAccount.authority.toBase58(), user.publicKey.toBase58());
+    assert.equal(validatorAccount.profile.toBase58(), profilePda.toBase58());
+    assert.ok(typeof validatorAccount.bump === "number");
   });
 });
